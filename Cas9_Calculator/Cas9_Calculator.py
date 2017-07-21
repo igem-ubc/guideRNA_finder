@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import scipy.io
 import math
 import argparse
@@ -9,12 +11,18 @@ from Bio import SeqIO
 
 
 def get_options():
-    parser = argparse.ArgumentParser()
-
+    """
+    Function that uses argparse to parse the command-line arguments and return an object with the parameters
+    :return: args - an object containing parameters parsed from the command-line
+    """
+    parser = argparse.ArgumentParser(description="A python script to look for off-target guide RNA binding sites using"
+                                                 "a potential guide RNA sequence and a FASTA or Genbank (.gbk) file")
     parser.add_argument("-s", "--guide_sequence", required=False, default="TACGTACACAAGAGCTCTAG",
                         help="The guide sequence to be searched in the genome")
-    parser.add_argument("-g", "--genbank", required=False, default="/home/connor/Bioinformatics/iGEM/NC_000913.gb",
+    parser.add_argument("-g", "--genbank", required=True, nargs="+",
                         help="A genbank file for the chromosome being used")
+    parser.add_argument("-m", "--model", required=True,
+                        help="The matlab model to use.")
 
     args = parser.parse_args()
     return args
@@ -95,19 +103,19 @@ def identify_target_sequence_matching_pam(PAM_seq, positions_at_mers, full_seque
 class sgRNA(object):
 
     def __init__(self, guideSequence, Cas9Calculator):
-    
+
         self.guideSequence = guideSequence
         self.Cas9Calculator = Cas9Calculator
-        
+
         self.partition_function = 1
         self.targetSequenceEnergetics = {}
-        
+
         self.debug = False
-        
+
     def run(self):
-    
+
         begin_time = time()
-        
+
         targetDictionary = self.Cas9Calculator.targetDictionary
         for (source,targets) in targetDictionary.items():
             self.targetSequenceEnergetics[source] = {}
@@ -119,7 +127,7 @@ class sgRNA(object):
                     dG_target = dG_PAM + dG_supercoiling + dG_exchange
                     self.targetSequenceEnergetics[source][targetPosition] = {'sequence' : targetSequence, 'dG_PAM' : dG_PAM, 'full_PAM' : fullPAM, 'dG_exchange' : dG_exchange, 'dG_supercoiling' : dG_supercoiling, 'dG_target' : dG_target}
                     self.partition_function += math.exp(-dG_target / self.Cas9Calculator.RT)
-                    
+
                     if self.debug:
                         print "targetSequence : ", targetSequence
                         print "fullPAM: " , fullPAM
@@ -128,62 +136,62 @@ class sgRNA(object):
                         print "dG_exchange: ", dG_exchange
                         print "dG_target: ", dG_target
                         print "Partition function (so far): ", self.partition_function
-                        
+
         end_time = time()
-        
+
         print "Elapsed Time: ", end_time - begin_time
-    
+
     def printTopTargets(self, numTargetsReturned = 100):
-    
+
         for (source, targets) in self.targetSequenceEnergetics.items():
             print "SOURCE: %s" % source
-            
+
             sortedTargetList = sorted(targets.items(), key = lambda (k, v): v['dG_target'])  #sort by smallest to largest dG_target
             print "POSITION\t\tTarget Sequence\t\tdG_Target\t\t% Partition Function"
             for (position, info) in sortedTargetList[0:numTargetsReturned]:
                 percentPartitionFunction = 100 * math.exp(-info['dG_target'] / self.Cas9Calculator.RT) / self.partition_function
                 print "%s\t\t\t%s\t\t\t%s\t\t\t%s" % (str(position), info['sequence'], str(round(info['dG_target'],2)), str(percentPartitionFunction) )
-                
+
     #
     # def exportAsDill(self):
     #
     #     handle = open('sgRNA_%s.dill' % self.guideSequence,'wb')
     #     dill.dump(self, handle, -1)
     #     handle.close()
-    
-        
+
+
 class clCas9Calculator(object):
 
-    def __init__(self,filename_list, quickmode=True, ModelName='InvitroModel.mat'):
-        
-        self.quickmode=quickmode
-        self.ModelName=ModelName
-        data=scipy.io.loadmat(self.ModelName)
-        self.weights=data['w1']
-        self.decNN=data['decNN']
-        self.RT = 0.61597        
-        
+    def __init__(self, filename_list, ModelName = 'InvitroModel.mat', quickmode=True):
+
+        self.quickmode = quickmode
+        self.ModelName = ModelName
+        data = scipy.io.loadmat(self.ModelName)
+        self.weights = data['w1']
+        self.decNN = data['decNN']
+        self.RT = 0.61597
+
         # the PAMs with the highest dG, ignoring other PAM sequences by setting their dG to 0
-        self.PAM_energy={'GGA':-9.8,'GGT':-10,'GGC':-10,'GGG':-9.9,'CGG':-8.1,'TGG':-7.8,'AGG':-8.1,'AGC':-8.1,'AGT':-8.1,'AGA':-7.9,'GCT':-7.1,'GCG':-6.9,'ATT':-7.2,'ATC':-6.4,'TTT':-7.6,'TTG':-6.8,'GTA':-7.4,'GTT':-7.9,'GTG':-7.7,'AAT':-7,'AAG':-7,'TAT':-7.2,'TAG':-7.2,'GAA':-7.2,'GAT':-7.3,'GAC':-7.2,'GAG':-7.3}
-    
+        self.PAM_energy = {'GGA':-9.8,'GGT':-10,'GGC':-10,'GGG':-9.9,'CGG':-8.1,'TGG':-7.8,'AGG':-8.1,'AGC':-8.1,'AGT':-8.1,'AGA':-7.9,'GCT':-7.1,'GCG':-6.9,'ATT':-7.2,'ATC':-6.4,'TTT':-7.6,'TTG':-6.8,'GTA':-7.4,'GTT':-7.9,'GTG':-7.7,'AAT':-7,'AAG':-7,'TAT':-7.2,'TAG':-7.2,'GAA':-7.2,'GAT':-7.3,'GAC':-7.2,'GAG':-7.3}
+
         self.initTargetFinder(filename_list)
-    
+
     def returnAllPAMs(self):
-        
+
         for (PAMpart,energies) in sorted(self.PAM_energy.items(), key = lambda x: x[1]):  #PAMpart will be 'GGT'
             for nt in ('A','G','C','T'):        #nt + PAMpart will be all possible 'NGGT'
                 yield nt + PAMpart
-    
+
     def initTargetFinder(self, filename_list):
-    
+
         targetDictionary = {}
-    
+
         for filename in filename_list:
-            handle = open(filename,'r')
+            handle = open(filename, 'r')
             records = SeqIO.parse(handle,"genbank")
             record = records.next()
             handle.close()
-            
+
             fullSequence = str(record.seq)
             positionsAtMers = identify_mer_positions(fullSequence, length = 10)
             targetDictionary[filename] = {}
@@ -192,7 +200,7 @@ class clCas9Calculator(object):
                 targetSequenceList = identify_target_sequence_matching_pam(fullPAM, positionsAtMers, fullSequence)
                 targetDictionary[filename][fullPAM] = targetSequenceList
             self.targetDictionary = targetDictionary
-        
+
     def printModelInfo(self):
         m=0
         s=0
@@ -205,16 +213,16 @@ class clCas9Calculator(object):
                     s+=float(e)
                     m+=1
         meanNN=float(s)/float(m)
-        
+
         sw=0
         for w in self.weights:
             sw+=w
-        
+
         meanw=sw/len(self.weights)
         print 'average mismatchc energy: ', meanNN
         print 'average weight:', meanw
         print 'number of negative energies: ', negative_val
-        
+
     def Calc_Exchange_Energy(self, crRNA, targetSeq):
         nt_pos={'A':0,'T':1,'C':2,'G':3,'a':0,'t':1,'c':2,'g':3}
         dG=0
@@ -226,13 +234,13 @@ class clCas9Calculator(object):
                 DNA=targetSeq[(i-1):(i+1)]
                 RNA_index=nt_pos[RNA[0]]+4*nt_pos[RNA[1]]
                 DNA_index=nt_pos[DNA[0]]+4*nt_pos[DNA[1]]
-                
+
                 dG1=float(self.decNN[RNA_index][DNA_index])
                 if abs(dG1-0.000015)<1e-6:
                     dG1=10000
                     dG1=2.3 # during model identification, I set the value of every unknown dG to 0.000015 (if I did not find a value for it)
-                    
-                    
+
+
                 pos=20-i
                 w1=float(self.weights[pos])
                 #print 'b1',RNA[0],RNA[1],DNA[0],DNA[1],RNA_index, DNA_index, pos,dG1, w1
@@ -241,20 +249,20 @@ class clCas9Calculator(object):
                 dG1=0
             if i<(len(crRNA)-1):
                 RNA2=crRNA[i:(i+2)]
-                DNA2=targetSeq[i:(i+2)]         
+                DNA2=targetSeq[i:(i+2)]
                 RNA_index=nt_pos[RNA2[0]]+4*nt_pos[RNA2[1]]
                 DNA_index=nt_pos[DNA2[0]]+4*nt_pos[DNA2[1]]
-                dG2=float(self.decNN[RNA_index][DNA_index]) 
+                dG2=float(self.decNN[RNA_index][DNA_index])
                 if abs(dG2-0.000015)<1e-6:
                     dG2=10000
                     dG2=2.3 # during model identification, I set the value of every unknown dG to 0.000015 (if I did not find a value for it)
-                
+
                 pos=20-i-1
                 w2=float(self.weights[pos])
                 #print 'b2',RNA2[0],RNA2[1],DNA2[0],DNA2[1],RNA_index, DNA_index, pos,dG2, w2
             else:
                 w2=0
-                dG2=0 
+                dG2=0
             dG+=w1*dG1+w2*dG2
         return float(dG)
 
@@ -276,16 +284,16 @@ class clCas9Calculator(object):
                     self.nt_mismatch_in_first8=self.nt_mismatch_in_first8+1
             dG+=w1*dG1
         return float(dG)
-        
+
     def calc_dG_PAM(self, PAM_full_seq):
-    
+
         # PAM sequence is 5' - N xxx N - 3' where the energy of xxx is listed below. A normal PAM of 'NGG' with 'TC' afterwards would be listed as 'GGT'
         key = PAM_full_seq[1:4]
         if key in self.PAM_energy:
             return self.PAM_energy[key]
         else:
             return 0.0
-        
+
         # acceptedPAMList=PAM_dic_energy.keys()
         # self.dG_PAM_List=[]
         # self.WarningPAM_List=[]
@@ -297,24 +305,24 @@ class clCas9Calculator(object):
                 # warning=''
             # else:
                 # dGPAM=0
-                # warning='N.B'             
+                # warning='N.B'
             # self.dG_PAM_List.append(dGPAM)
             # self.WarningPAM_List.append(warning)
-           
+
     def calc_dG_exchange(self, guideSequence, targetSequence):
         self.nt_mismatch_in_first8_list=[]
         if self.quickmode:
-            solverfunc=self.QuickCalc_Exchange_Energy           
+            solverfunc=self.QuickCalc_Exchange_Energy
         else:
             solverfunc=self.Calc_Exchange_Energy
-        
+
         dG_exchange = solverfunc(guideSequence,targetSequence)
-        
+
         return dG_exchange
-        
+
     def calc_dG_supercoiling(self, sigmaInitial, targetSequence):
-    
-        
+
+
         sigmaFinal = -0.08
         dG_supercoiling = 10.0 * len(targetSequence) * self.RT * (sigmaFinal**2 - sigmaInitial**2)
         return dG_supercoiling
@@ -323,12 +331,12 @@ class clCas9Calculator(object):
 def main():
     args = get_options()
     
-    Cas9Calculator = clCas9Calculator(['../GenomeCalculations/NC_000913.gb'])
-    sgRNA1 = sgRNA(args.guide_sequence, Cas9Calculator)
-    sgRNA1.run()
+    Cas9Calculator = clCas9Calculator(args.genbank, args.model)
+    # sgRNA1 = sgRNA(args.guide_sequence, Cas9Calculator)
+    # sgRNA1.run()
     # sgRNA1.exportAsDill()
     
-    print sgRNA1
+    # print sgRNA1
     
     #PAM='GGA' # NGGA
     #sequence_list=['AGTCCTCATCTCCCTCAAGCCGGA','AGTCCTCATCTCCCTCAAGTCGGA','AGTCCTCATCTCCCTCATGCCGGA']  # list of all potential on- and off-targets
