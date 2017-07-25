@@ -3,10 +3,12 @@
 import scipy.io
 import math
 import argparse
+import re
+import sys
 from itertools import product
-# import operator
 from time import time
 from Bio import SeqIO
+# import operator
 # import csv
 # import dill
 
@@ -70,32 +72,36 @@ def identify_mer_positions(full_sequence, length=10):
     counter = 0
     while counter < (len(full_sequence)-length):
         word = full_sequence[counter:counter+length]
-        positions_at_mers[word].append(counter+length)
+        if re.search('N', word):
+            pass
+        else:
+            try:
+                positions_at_mers[word].append(counter+length)
+            except KeyError:
+                sys.exit(word)
         counter += 1
     return positions_at_mers
 
 
-def identify_target_sequence_matching_pam(PAM_seq, positions_at_mers, full_sequence, 
-                                        target_sequence_length=20):
+def identify_target_sequence_matching_pam(pam_seq, positions_at_mers, full_sequence, target_sequence_length=20):
     """ Generates a list of target nucleotide sequences and corresponding nt 
-    positions for an inputted sequence that matched the PAM_seq.
+    positions for an inputted sequence that matched the pam_seq.
         Uses the positionsAtMers dictionary to accelerate the identification. 
         Good for large genomes.
         
-    Usage:  listOfTargets = identify_target_sequence_matching_pam('CGG', 
-                                positionsAtMers, genome_sequence)
+    Usage:  listOfTargets = identify_target_sequence_matching_pam('CGG', positionsAtMers, genome_sequence)
     """
     target_sequence_list = []
     all_mers = positions_at_mers.keys()
     mer_length = len(all_mers[0])
-    list_of_mers_with_PAM = [mer + PAM_seq for mer in mers(mer_length - len(PAM_seq))]
-    for mer_with_PAM in list_of_mers_with_PAM:
+    list_of_mers_with_pam = [mer + pam_seq for mer in mers(mer_length - len(pam_seq))]
+    for mer_with_PAM in list_of_mers_with_pam:
         nt_list = positions_at_mers[mer_with_PAM]
         for nt in nt_list:
-            begin = nt-target_sequence_length - len(PAM_seq)
-            end = nt - len(PAM_seq)
+            begin = nt-target_sequence_length - len(pam_seq)
+            end = nt - len(pam_seq)
             if begin > 0 and end < len(full_sequence):  # Does not account for circular DNAs
-                target_sequence = full_sequence[begin : end]
+                target_sequence = full_sequence[begin:end]
                 target_sequence_list.append((target_sequence, nt))
     return target_sequence_list
 
@@ -332,21 +338,22 @@ def main():
     args = get_options()
     
     Cas9Calculator = clCas9Calculator(args.genbank, args.model)
-    # sgRNA1 = sgRNA(args.guide_sequence, Cas9Calculator)
-    # sgRNA1.run()
+    sgRNA1 = sgRNA(args.guide_sequence, Cas9Calculator)
+    sgRNA1.run()
+    sgRNA1.printTopTargets()
     # sgRNA1.exportAsDill()
     
     # print sgRNA1
     
-    #PAM='GGA' # NGGA
-    #sequence_list=['AGTCCTCATCTCCCTCAAGCCGGA','AGTCCTCATCTCCCTCAAGTCGGA','AGTCCTCATCTCCCTCATGCCGGA']  # list of all potential on- and off-targets
+    # PAM='GGA' # NGGA
+    # sequence_list=['AGTCCTCATCTCCCTCAAGCCGGA','AGTCCTCATCTCCCTCAAGTCGGA','AGTCCTCATCTCCCTCATGCCGGA']  # list of all potential on- and off-targets
     
-    #Cas9Calculator=clCas9Calculator(quickmode=True) # using quick approach
-    #Cas9Calculator=clCas9Calculator(quickmode=False) # using Invitro or complete model
-    #Cas9Calculator=clCas9Calculator(quickmode=False,cModelName='All_dataModel.mat') # using Invitro or complete model
-    #Cas9Calculator.loadData(sequence_list,crRNAseq,PAM,True)
-    #Cas9Calculator.calcTarget_energy()
-    #Cas9Calculator.export_dG() # in an excel file
-    #print Cas9Calculator.dG_total_List
+    # Cas9Calculator=clCas9Calculator(quickmode=True) # using quick approach
+    # Cas9Calculator=clCas9Calculator(quickmode=False) # using Invitro or complete model
+    # Cas9Calculator=clCas9Calculator(quickmode=False,cModelName='All_dataModel.mat') # using Invitro or complete model
+    # Cas9Calculator.loadData(sequence_list,crRNAseq,PAM,True)
+    # Cas9Calculator.calcTarget_energy()
+    # Cas9Calculator.export_dG() # in an excel file
+    # print Cas9Calculator.dG_total_List
 
 main()
