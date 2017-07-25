@@ -20,12 +20,12 @@ def get_options():
     """
     parser = argparse.ArgumentParser(description="A python script to look for off-target guide RNA binding sites using"
                                                  "a potential guide RNA sequence and a FASTA or Genbank (.gbk) file")
-    parser.add_argument("-s", "--guide_sequence", required=False, default="TACGTACACAAGAGCTCTAG",
-                        help="The guide sequence to be searched in the genome")
     parser.add_argument("-g", "--genbank", required=True, nargs="+",
                         help="A genbank file for the chromosome being used")
     parser.add_argument("-m", "--model", required=True,
                         help="The matlab model to use.")
+    parser.add_argument("-t", "--target_sequence", required=True,
+                        help="The gene sequence to be targetted")
 
     args = parser.parse_args()
     return args
@@ -49,13 +49,40 @@ def mers(length):
     return seq_list
 
 
+def get_nggs(target_sequence):
+    """
+
+    :param target_sequence:
+    :return:
+    """
+    target_seq = ""
+    with open(target_sequence, 'r') as target:
+        for line in target:
+            line = line.upper()
+            if line[0] == '>':
+                pass
+            else:
+                target_seq += line.strip()
+
+    nggs = list()
+    length = 23
+    counter = 0
+    ngg_re = re.compile(r'.*GG$')
+    while counter < len(target_seq) - length:
+        candidate = target_seq[counter:counter+length]
+        if re.match(ngg_re, candidate):
+            nggs.append(candidate[:20])
+        counter += 1
+    return nggs
+
+
 def identify_mer_positions(full_sequence, length=10):
     """
     Saves list of nucleotide positions in genome that all match a unique N-mer
     sequence. Counting begins at _ending_ of MER.
     
     Usage:   genomePositionsAtMers[mer_sequence] is a list of nucleotide positions 
-    within the inputted fullSequence that match mer_sequence
+    within the inputted full_sequence that match mer_sequence
              If mer_sequence ends in a PAM site, then this can be used to match 
              the first N-3 nt of a guide strand plus a PAM site sequence.
     """
@@ -180,7 +207,7 @@ class clCas9Calculator(object):
         # the PAMs with the highest dG, ignoring other PAM sequences by setting their dG to 0
         self.PAM_energy = {'GGA':-9.8,'GGT':-10,'GGC':-10,'GGG':-9.9,'CGG':-8.1,'TGG':-7.8,'AGG':-8.1,'AGC':-8.1,'AGT':-8.1,'AGA':-7.9,'GCT':-7.1,'GCG':-6.9,'ATT':-7.2,'ATC':-6.4,'TTT':-7.6,'TTG':-6.8,'GTA':-7.4,'GTT':-7.9,'GTG':-7.7,'AAT':-7,'AAG':-7,'TAT':-7.2,'TAG':-7.2,'GAA':-7.2,'GAT':-7.3,'GAC':-7.2,'GAG':-7.3}
 
-        self.initTargetFinder(filename_list)
+        self.init_target_finder(filename_list)
 
     def returnAllPAMs(self):
 
@@ -188,22 +215,22 @@ class clCas9Calculator(object):
             for nt in ('A','G','C','T'):        #nt + PAMpart will be all possible 'NGGT'
                 yield nt + PAMpart
 
-    def initTargetFinder(self, filename_list):
+    def init_target_finder(self, filename_list):
 
         targetDictionary = {}
 
         for filename in filename_list:
             handle = open(filename, 'r')
-            records = SeqIO.parse(handle,"genbank")
+            records = SeqIO.parse(handle, "genbank")
             record = records.next()
             handle.close()
 
-            fullSequence = str(record.seq)
-            positionsAtMers = identify_mer_positions(fullSequence, length=10)
+            full_sequence = str(record.seq)
+            positionsAtMers = identify_mer_positions(full_sequence, length=10)
             targetDictionary[filename] = {}
             targetSequenceList = []
             for fullPAM in self.returnAllPAMs():
-                targetSequenceList = identify_target_sequence_matching_pam(fullPAM, positionsAtMers, fullSequence)
+                targetSequenceList = identify_target_sequence_matching_pam(fullPAM, positionsAtMers, full_sequence)
                 targetDictionary[filename][fullPAM] = targetSequenceList
             self.targetDictionary = targetDictionary
 
@@ -336,17 +363,20 @@ class clCas9Calculator(object):
 
 def main():
     args = get_options()
-    
+
+    nggs_list = get_nggs(args.target_sequence)
     Cas9Calculator = clCas9Calculator(args.genbank, args.model)
-    sgRNA1 = sgRNA(args.guide_sequence, Cas9Calculator)
-    sgRNA1.run()
-    sgRNA1.printTopTargets()
+    for ngg in nggs_list:
+        sgRNA1 = sgRNA(ngg, Cas9Calculator)
+        sgRNA1.run()
+        sgRNA1.printTopTargets()
     # sgRNA1.exportAsDill()
     
     # print sgRNA1
     
     # PAM='GGA' # NGGA
-    # sequence_list=['AGTCCTCATCTCCCTCAAGCCGGA','AGTCCTCATCTCCCTCAAGTCGGA','AGTCCTCATCTCCCTCATGCCGGA']  # list of all potential on- and off-targets
+    # list of all potential on- and off-targets
+    # sequence_list=['AGTCCTCATCTCCCTCAAGCCGGA','AGTCCTCATCTCCCTCAAGTCGGA','AGTCCTCATCTCCCTCATGCCGGA']
     
     # Cas9Calculator=clCas9Calculator(quickmode=True) # using quick approach
     # Cas9Calculator=clCas9Calculator(quickmode=False) # using Invitro or complete model
