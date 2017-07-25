@@ -3,6 +3,7 @@
 import scipy.io
 import math
 import argparse
+from itertools import product
 # import operator
 from time import time
 from Bio import SeqIO
@@ -29,28 +30,27 @@ def get_options():
 
 
 def mers(length): 
-    """Generates multimers for sorting through list of 10mers based on user 
+    """
+    Generates multimers for sorting through list of k-mers based on user
     specification. Multimers generated act as the keys for generating a 
-    hashtable to eliminate undesired sequence patterns from those 10mers not
+    hashtable to eliminate undesired sequence patterns from those k-mers not
     found in the genome. 
     
-    Usage: mers(N) = 4^(N) unique Nmers 
+    Usage: mers(k) = 4^(k) unique k-mers
     """
-    seq_list = ['']
-    counter=0
-    while counter < length:
-        for seq in seq_list:
-            if len(seq) == counter:
-                for x in ['A', 'T', 'C', 'G']:
-                    seq_list.append(seq+x)
-        counter += 1
-    last_N_Mers = 4**length
-    return seq_list[len(seq_list)-last_N_Mers :]
+    # Scales equally well as the old code, but simpler
+    seq_list = list()
+    nucleotides = ['A', 'T', 'C', 'G']
+    all_kmers = product(nucleotides, repeat=length)
+    for mer in all_kmers:
+        seq_list.append(''.join(mer))
+    return seq_list
 
 
 def identify_mer_positions(full_sequence, length=10):
-    """Saves list of nucleotide positions in genome that all match a unique N-mer
-    sequence. Counting begins at __ending_ of MER.
+    """
+    Saves list of nucleotide positions in genome that all match a unique N-mer
+    sequence. Counting begins at _ending_ of MER.
     
     Usage:   genomePositionsAtMers[mer_sequence] is a list of nucleotide positions 
     within the inputted fullSequence that match mer_sequence
@@ -58,7 +58,7 @@ def identify_mer_positions(full_sequence, length=10):
              the first N-3 nt of a guide strand plus a PAM site sequence.
     """
 
-    # Create a list of all possible N-mers
+    # Create a list of all possible k-mers
     all_possible_mers = mers(length)
     
     # Search through the genome and add nucleotide positions for match to an N-mer
@@ -66,10 +66,10 @@ def identify_mer_positions(full_sequence, length=10):
     for mer in all_possible_mers:
         positions_at_mers[mer] = []
     
-    print "Number of Mers: ", len(positions_at_mers.keys())
+    print "Number of k-mers: ", len(positions_at_mers.keys())
     counter = 0
     while counter < (len(full_sequence)-length):
-        word = full_sequence[counter : counter+length]
+        word = full_sequence[counter:counter+length]
         positions_at_mers[word].append(counter+length)
         counter += 1
     return positions_at_mers
@@ -162,11 +162,11 @@ class sgRNA(object):
 
 class clCas9Calculator(object):
 
-    def __init__(self, filename_list, ModelName = 'InvitroModel.mat', quickmode=True):
+    def __init__(self, filename_list, model_name='InvitroModel.mat', quickmode=True):
 
         self.quickmode = quickmode
-        self.ModelName = ModelName
-        data = scipy.io.loadmat(self.ModelName)
+        self.model_name = model_name
+        data = scipy.io.loadmat(self.model_name)
         self.weights = data['w1']
         self.decNN = data['decNN']
         self.RT = 0.61597
@@ -193,7 +193,7 @@ class clCas9Calculator(object):
             handle.close()
 
             fullSequence = str(record.seq)
-            positionsAtMers = identify_mer_positions(fullSequence, length = 10)
+            positionsAtMers = identify_mer_positions(fullSequence, length=10)
             targetDictionary[filename] = {}
             targetSequenceList = []
             for fullPAM in self.returnAllPAMs():
