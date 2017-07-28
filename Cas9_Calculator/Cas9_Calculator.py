@@ -31,13 +31,13 @@ def get_options():
     return args
 
 
-def mers(length): 
+def mers(length):
     """
     Generates multimers for sorting through list of k-mers based on user
-    specification. Multimers generated act as the keys for generating a 
+    specification. Multimers generated act as the keys for generating a
     hashtable to eliminate undesired sequence patterns from those k-mers not
-    found in the genome. 
-    
+    found in the genome.
+
     Usage: mers(k) = 4^(k) unique k-mers
     """
     # Scales equally well as the old code, but simpler
@@ -80,12 +80,13 @@ def identify_mer_positions(full_sequence, empty_mers, length=10):
     """
     Saves list of nucleotide positions in genome that all match a unique N-mer
     sequence. Counting begins at _ending_ of MER.
-    
-    Usage:   genomePositionsAtMers[mer_sequence] is a list of nucleotide positions 
+
+    Usage:   genomePositionsAtMers[mer_sequence] is a list of nucleotide positions
     within the inputted full_sequence that match mer_sequence
-             If mer_sequence ends in a PAM site, then this can be used to match 
+             If mer_sequence ends in a PAM site, then this can be used to match
              the first N-3 nt of a guide strand plus a PAM site sequence.
     """
+
     counter = 0
     while counter < (len(full_sequence)-length):
         word = full_sequence[counter:counter+length]
@@ -101,11 +102,11 @@ def identify_mer_positions(full_sequence, empty_mers, length=10):
 
 
 def identify_target_sequence_matching_pam(pam_seq, positions_at_mers, full_sequence, target_sequence_length=20):
-    """ Generates a list of target nucleotide sequences and corresponding nt 
+    """ Generates a list of target nucleotide sequences and corresponding nt
     positions for an inputted sequence that matched the pam_seq.
-        Uses the positionsAtMers dictionary to accelerate the identification. 
+        Uses the positionsAtMers dictionary to accelerate the identification.
         Good for large genomes.
-        
+
     Usage:  listOfTargets = identify_target_sequence_matching_pam('CGG', positionsAtMers, genome_sequence)
     """
     target_sequence_list = []
@@ -163,6 +164,7 @@ class sgRNA(object):
         end_time = time()
 
         print "Elapsed Time: ", end_time - begin_time
+        print "Target Sequence: ", self.guideSequence
 
     def printTopTargets(self, numTargetsReturned=100):
 
@@ -375,13 +377,13 @@ def main():
         sgRNA1.run()
         sgRNA1.printTopTargets()
     # sgRNA1.exportAsDill()
-    
+
     # print sgRNA1
-    
+
     # PAM='GGA' # NGGA
     # list of all potential on- and off-targets
     # sequence_list=['AGTCCTCATCTCCCTCAAGCCGGA','AGTCCTCATCTCCCTCAAGTCGGA','AGTCCTCATCTCCCTCATGCCGGA']
-    
+
     # Cas9Calculator=clCas9Calculator(quickmode=True) # using quick approach
     # Cas9Calculator=clCas9Calculator(quickmode=False) # using Invitro or complete model
     # Cas9Calculator=clCas9Calculator(quickmode=False,cModelName='All_dataModel.mat') # using Invitro or complete model
