@@ -76,7 +76,7 @@ def get_nggs(target_sequence):
     return nggs
 
 
-def identify_mer_positions(full_sequence, length=10):
+def identify_mer_positions(full_sequence, empty_mers, length=10):
     """
     Saves list of nucleotide positions in genome that all match a unique N-mer
     sequence. Counting begins at _ending_ of MER.
@@ -86,16 +86,6 @@ def identify_mer_positions(full_sequence, length=10):
              If mer_sequence ends in a PAM site, then this can be used to match 
              the first N-3 nt of a guide strand plus a PAM site sequence.
     """
-
-    # Create a list of all possible k-mers
-    all_possible_mers = mers(length)
-    
-    # Search through the genome and add nucleotide positions for match to an N-mer
-    positions_at_mers = {}
-    for mer in all_possible_mers:
-        positions_at_mers[mer] = []
-    
-    print "Number of k-mers: ", len(positions_at_mers.keys())
     counter = 0
     while counter < (len(full_sequence)-length):
         word = full_sequence[counter:counter+length]
@@ -103,11 +93,11 @@ def identify_mer_positions(full_sequence, length=10):
             pass
         else:
             try:
-                positions_at_mers[word].append(counter+length)
+                empty_mers[word].append(counter+length)
             except KeyError:
                 sys.exit(word)
         counter += 1
-    return positions_at_mers
+    return empty_mers
 
 
 def identify_target_sequence_matching_pam(pam_seq, positions_at_mers, full_sequence, target_sequence_length=20):
@@ -150,7 +140,7 @@ class sgRNA(object):
         begin_time = time()
 
         targetDictionary = self.Cas9Calculator.targetDictionary
-        for (source,targets) in targetDictionary.items():
+        for (source, targets) in targetDictionary.items():
             self.targetSequenceEnergetics[source] = {}
             for fullPAM in self.Cas9Calculator.returnAllPAMs():
                 dG_PAM = self.Cas9Calculator.calc_dG_PAM(fullPAM)
@@ -174,12 +164,12 @@ class sgRNA(object):
 
         print "Elapsed Time: ", end_time - begin_time
 
-    def printTopTargets(self, numTargetsReturned = 100):
+    def printTopTargets(self, numTargetsReturned=100):
 
         for (source, targets) in self.targetSequenceEnergetics.items():
             print "SOURCE: %s" % source
 
-            sortedTargetList = sorted(targets.items(), key = lambda (k, v): v['dG_target'])  #sort by smallest to largest dG_target
+            sortedTargetList = sorted(targets.items(), key=lambda (k, v): v['dG_target'])  # sort by smallest to largest dG_target
             print "POSITION\t\tTarget Sequence\t\tdG_Target\t\t% Partition Function"
             for (position, info) in sortedTargetList[0:numTargetsReturned]:
                 percentPartitionFunction = 100 * math.exp(-info['dG_target'] / self.Cas9Calculator.RT) / self.partition_function
@@ -205,19 +195,31 @@ class clCas9Calculator(object):
         self.RT = 0.61597
 
         # the PAMs with the highest dG, ignoring other PAM sequences by setting their dG to 0
-        self.PAM_energy = {'GGA':-9.8,'GGT':-10,'GGC':-10,'GGG':-9.9,'CGG':-8.1,'TGG':-7.8,'AGG':-8.1,'AGC':-8.1,'AGT':-8.1,'AGA':-7.9,'GCT':-7.1,'GCG':-6.9,'ATT':-7.2,'ATC':-6.4,'TTT':-7.6,'TTG':-6.8,'GTA':-7.4,'GTT':-7.9,'GTG':-7.7,'AAT':-7,'AAG':-7,'TAT':-7.2,'TAG':-7.2,'GAA':-7.2,'GAT':-7.3,'GAC':-7.2,'GAG':-7.3}
+        self.PAM_energy = {'GGA': -9.8, 'GGT': -10, 'GGC': -10, 'GGG': -9.9, 'CGG': -8.1, 'TGG': -7.8, 'AGG': -8.1,
+                           'AGC': -8.1, 'AGT': -8.1, 'AGA': -7.9, 'GCT': -7.1, 'GCG': -6.9, 'ATT': -7.2, 'ATC': -6.4,
+                           'TTT': -7.6, 'TTG': -6.8, 'GTA': -7.4, 'GTT': -7.9, 'GTG': -7.7, 'AAT': -7, 'AAG': -7,
+                           'TAT': -7.2, 'TAG': -7.2, 'GAA': -7.2, 'GAT': -7.3, 'GAC': -7.2, 'GAG': -7.3}
 
         self.init_target_finder(filename_list)
 
     def returnAllPAMs(self):
 
-        for (PAMpart,energies) in sorted(self.PAM_energy.items(), key = lambda x: x[1]):  #PAMpart will be 'GGT'
-            for nt in ('A','G','C','T'):        #nt + PAMpart will be all possible 'NGGT'
+        for (PAMpart, energies) in sorted(self.PAM_energy.items(), key=lambda x: x[1]):  # PAMpart will be 'GGT'
+            for nt in ('A', 'G', 'C', 'T'):  # nt + PAMpart will be all possible 'NGGT'
                 yield nt + PAMpart
 
-    def init_target_finder(self, filename_list):
+    def init_target_finder(self, filename_list, length=10):
 
         targetDictionary = {}
+
+        # Create a list of all possible k-mers
+        all_possible_mers = mers(length)
+        # Search through the genome and add nucleotide positions for match to an N-mer
+        empty_mers = {}
+        for mer in all_possible_mers:
+            empty_mers[mer] = []
+
+        print "Number of k-mers: ", len(empty_mers.keys())
 
         for filename in filename_list:
             handle = open(filename, 'r')
@@ -226,32 +228,34 @@ class clCas9Calculator(object):
             handle.close()
 
             full_sequence = str(record.seq)
-            positionsAtMers = identify_mer_positions(full_sequence, length=10)
+            positions_at_mers = identify_mer_positions(full_sequence, empty_mers, length)
             targetDictionary[filename] = {}
             targetSequenceList = []
             for fullPAM in self.returnAllPAMs():
-                targetSequenceList = identify_target_sequence_matching_pam(fullPAM, positionsAtMers, full_sequence)
+                targetSequenceList = identify_target_sequence_matching_pam(fullPAM, positions_at_mers, full_sequence)
                 targetDictionary[filename][fullPAM] = targetSequenceList
             self.targetDictionary = targetDictionary
 
-    def printModelInfo(self):
-        m=0
-        s=0
-        negative_val=0
-        for i,l in enumerate(self.decNN):
-            for j,e in enumerate(l):
-                if float(e)<0:
-                    negative_val+=1
-                if i!=j:
-                    s+=float(e)
-                    m+=1
+        empty_mers.clear()
+
+    def print_model_info(self):
+        m = 0
+        s = 0
+        negative_val = 0
+        for i, l in enumerate(self.decNN):
+            for j, e in enumerate(l):
+                if float(e) < 0:
+                    negative_val += 1
+                if i != j:
+                    s += float(e)
+                    m += 1
         meanNN=float(s)/float(m)
 
-        sw=0
+        sw = 0
         for w in self.weights:
-            sw+=w
+            sw += w
 
-        meanw=sw/len(self.weights)
+        meanw = sw/len(self.weights)
         print 'average mismatchc energy: ', meanNN
         print 'average weight:', meanw
         print 'number of negative energies: ', negative_val
