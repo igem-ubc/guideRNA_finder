@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+import csv
 import scipy.io
 import math
 import argparse
@@ -8,6 +8,7 @@ import sys
 from itertools import product
 from time import time
 from Bio import SeqIO
+
 # import operator
 # import csv
 # import dill
@@ -176,6 +177,18 @@ class sgRNA(object):
             for (position, info) in sortedTargetList[0:numTargetsReturned]:
                 percentPartitionFunction = 100 * math.exp(-info['dG_target'] / self.Cas9Calculator.RT) / self.partition_function
                 print "%s\t\t\t%s\t\t\t%s\t\t\t%s" % (str(position), info['sequence'], str(round(info['dG_target'],2)), str(percentPartitionFunction) )
+
+    def getResults(self):
+        #todo
+        #return the restults of this run of the calculator
+        #see the above code that prints the results out and extract out the important data, try by starting with and seeing what is in there
+        print self.targetSequenceEnergetics.items()
+
+        output = []
+
+        #return an array of [Target location, Partision Function]
+
+        return
 
     #
     # def exportAsDill(self):
@@ -366,16 +379,38 @@ class clCas9Calculator(object):
         dG_supercoiling = 10.0 * len(targetSequence) * self.RT * (sigmaFinal**2 - sigmaInitial**2)
         return dG_supercoiling
 
+def exportFile(filedata, args):
+    #todo
+    #we should use the CSV print lib
+    #we should start the file with a leading title about when this was run
+    import csv
+    filewrite = csv.writer(file)
+
+    return
+
 
 def main():
     args = get_options()
 
     nggs_list = get_nggs(args.target_sequence)
+
+
     Cas9Calculator = clCas9Calculator(args.genbank, args.model)
+
+    output = [[]]
     for ngg in nggs_list:
+        #we need to extract the results of each run into the Output array that we can then print to a file
+
         sgRNA1 = sgRNA(ngg, Cas9Calculator)
         sgRNA1.run()
         sgRNA1.printTopTargets()
+        output.append( sgRNA1.getResults())
+
+    #TODO
+        # we must print the output 2d array to a CSV file
+
+    exportFile(output,args)
+
     # sgRNA1.exportAsDill()
 
     # print sgRNA1
