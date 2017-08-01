@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 import csv
 import scipy.io
 import math
@@ -127,9 +128,9 @@ def identify_target_sequence_matching_pam(pam_seq, positions_at_mers, full_seque
 
 class sgRNA(object):
 
-    def __init__(self, guideSequence, Cas9Calculator):
+    def __init__(self, guide_sequence, Cas9Calculator):
 
-        self.guideSequence = guideSequence
+        self.guide_sequence = guide_sequence
         self.Cas9Calculator = Cas9Calculator
 
         self.partition_function = 1
@@ -146,16 +147,21 @@ class sgRNA(object):
             self.targetSequenceEnergetics[source] = {}
             for fullPAM in self.Cas9Calculator.returnAllPAMs():
                 dG_PAM = self.Cas9Calculator.calc_dG_PAM(fullPAM)
-                dG_supercoiling = self.Cas9Calculator.calc_dG_supercoiling(sigmaInitial = -0.05, targetSequence = 20 * "N")  #only cares about length of sequence
-                for (targetSequence,targetPosition) in targetDictionary[source][fullPAM]:
-                    dG_exchange = self.Cas9Calculator.calc_dG_exchange(self.guideSequence,targetSequence)
+                dG_supercoiling = self.Cas9Calculator.calc_dG_supercoiling(sigmaInitial=-0.05, targetSequence=20 * "N")  #only cares about length of sequence
+                for (targetSequence, targetPosition) in targetDictionary[source][fullPAM]:
+                    dG_exchange = self.Cas9Calculator.calc_dG_exchange(self.guide_sequence, targetSequence)
                     dG_target = dG_PAM + dG_supercoiling + dG_exchange
-                    self.targetSequenceEnergetics[source][targetPosition] = {'sequence' : targetSequence, 'dG_PAM' : dG_PAM, 'full_PAM' : fullPAM, 'dG_exchange' : dG_exchange, 'dG_supercoiling' : dG_supercoiling, 'dG_target' : dG_target}
+                    self.targetSequenceEnergetics[source][targetPosition] = {'sequence': targetSequence, 
+                                                                             'dG_PAM': dG_PAM, 
+                                                                             'full_PAM': fullPAM, 
+                                                                             'dG_exchange': dG_exchange,
+                                                                             'dG_supercoiling': dG_supercoiling,
+                                                                             'dG_target': dG_target}
                     self.partition_function += math.exp(-dG_target / self.Cas9Calculator.RT)
 
                     if self.debug:
                         print "targetSequence : ", targetSequence
-                        print "fullPAM: " , fullPAM
+                        print "fullPAM: ", fullPAM
                         print "dG_PAM: ", dG_PAM
                         print "dG_supercoiling: ", dG_supercoiling
                         print "dG_exchange: ", dG_exchange
@@ -165,35 +171,34 @@ class sgRNA(object):
         end_time = time()
 
         print "Elapsed Time: ", end_time - begin_time
-        print "Target Sequence: ", self.guideSequence
+        print "Target Sequence: ", self.guide_sequence
 
-    def printTopTargets(self, numTargetsReturned=100):
+    def printTopTargets(self, num_targets_returned=100):
 
         for (source, targets) in self.targetSequenceEnergetics.items():
             print "SOURCE: %s" % source
 
             sortedTargetList = sorted(targets.items(), key=lambda (k, v): v['dG_target'])  # sort by smallest to largest dG_target
             print "POSITION\t\tTarget Sequence\t\tdG_Target\t\t% Partition Function"
-            for (position, info) in sortedTargetList[0:numTargetsReturned]:
+            for (position, info) in sortedTargetList[0:num_targets_returned]:
                 percentPartitionFunction = 100 * math.exp(-info['dG_target'] / self.Cas9Calculator.RT) / self.partition_function
-                print "%s\t\t\t%s\t\t\t%s\t\t\t%s" % (str(position), info['sequence'], str(round(info['dG_target'],2)), str(percentPartitionFunction) )
+                print "%s\t\t\t%s\t\t\t%s\t\t\t%s" % (str(position), info['sequence'], str(round(info['dG_target'], 2)), str(percentPartitionFunction) )
 
     def getResults(self):
-        #todo
-        #return the restults of this run of the calculator
-        #see the above code that prints the results out and extract out the important data, try by starting with and seeing what is in there
+        # TODO: return the results of this run of the calculator
+        # TODO: see the above code that prints the results out and extract out the important data, try by starting with and seeing what is in there
         print self.targetSequenceEnergetics.items()
 
         output = []
 
-        #return an array of [Target location, Partision Function]
+        # return an array of [Target location, Partition Function]
 
         return
 
     #
     # def exportAsDill(self):
     #
-    #     handle = open('sgRNA_%s.dill' % self.guideSequence,'wb')
+    #     handle = open('sgRNA_%s.dill' % self.guide_sequence,'wb')
     #     dill.dump(self, handle, -1)
     #     handle.close()
 
@@ -276,70 +281,72 @@ class clCas9Calculator(object):
         print 'number of negative energies: ', negative_val
 
     def Calc_Exchange_Energy(self, crRNA, targetSeq):
-        nt_pos={'A':0,'T':1,'C':2,'G':3,'a':0,'t':1,'c':2,'g':3}
+        nt_pos = {'A': 0, 'T': 1, 'C': 2, 'G': 3,
+                  'a': 0, 't': 1, 'c': 2, 'g': 3}
         dG=0
-        RNA=''
-        DNA=''
-        for i in range(0,len(crRNA)):
-            if i>0:
-                RNA=crRNA[(i-1):(i+1)]
-                DNA=targetSeq[(i-1):(i+1)]
-                RNA_index=nt_pos[RNA[0]]+4*nt_pos[RNA[1]]
-                DNA_index=nt_pos[DNA[0]]+4*nt_pos[DNA[1]]
+        RNA= ''
+        DNA= ''
+        for i in range(0, len(crRNA)):
+            if i > 0:
+                RNA = crRNA[(i-1):(i+1)]
+                DNA = targetSeq[(i-1):(i+1)]
+                RNA_index = nt_pos[RNA[0]]+4*nt_pos[RNA[1]]
+                DNA_index = nt_pos[DNA[0]]+4*nt_pos[DNA[1]]
 
-                dG1=float(self.decNN[RNA_index][DNA_index])
-                if abs(dG1-0.000015)<1e-6:
-                    dG1=10000
-                    dG1=2.3 # during model identification, I set the value of every unknown dG to 0.000015 (if I did not find a value for it)
+                dG1 = float(self.decNN[RNA_index][DNA_index])
+                if abs(dG1-0.000015) < 1e-6:
+                    dG1 = 10000
+                    dG1 = 2.3  # during model identification, I set the value of every unknown dG to 0.000015 (if I did not find a value for it)
 
-
-                pos=20-i
-                w1=float(self.weights[pos])
-                #print 'b1',RNA[0],RNA[1],DNA[0],DNA[1],RNA_index, DNA_index, pos,dG1, w1
+                pos = 20-i
+                w1 = float(self.weights[pos])
+                # print 'b1',RNA[0],RNA[1],DNA[0],DNA[1],RNA_index, DNA_index, pos,dG1, w1
             else:
-                w1=0
-                dG1=0
-            if i<(len(crRNA)-1):
-                RNA2=crRNA[i:(i+2)]
-                DNA2=targetSeq[i:(i+2)]
-                RNA_index=nt_pos[RNA2[0]]+4*nt_pos[RNA2[1]]
-                DNA_index=nt_pos[DNA2[0]]+4*nt_pos[DNA2[1]]
-                dG2=float(self.decNN[RNA_index][DNA_index])
-                if abs(dG2-0.000015)<1e-6:
-                    dG2=10000
-                    dG2=2.3 # during model identification, I set the value of every unknown dG to 0.000015 (if I did not find a value for it)
+                w1 = 0
+                dG1 = 0
+            if i < (len(crRNA)-1):
+                RNA2 = crRNA[i:(i+2)]
+                DNA2 = targetSeq[i:(i+2)]
+                RNA_index = nt_pos[RNA2[0]]+4*nt_pos[RNA2[1]]
+                DNA_index = nt_pos[DNA2[0]]+4*nt_pos[DNA2[1]]
+                dG2 = float(self.decNN[RNA_index][DNA_index])
+                if abs(dG2-0.000015) < 1e-6:
+                    dG2 = 10000
+                    dG2 = 2.3 # during model identification, I set the value of every unknown dG to 0.000015 (if I did not find a value for it)
 
-                pos=20-i-1
-                w2=float(self.weights[pos])
-                #print 'b2',RNA2[0],RNA2[1],DNA2[0],DNA2[1],RNA_index, DNA_index, pos,dG2, w2
+                pos = 20-i-1
+                w2 = float(self.weights[pos])
+                # print 'b2',RNA2[0],RNA2[1],DNA2[0],DNA2[1],RNA_index, DNA_index, pos,dG2, w2
             else:
-                w2=0
-                dG2=0
-            dG+=w1*dG1+w2*dG2
+                w2 = 0
+                dG2 = 0
+            dG += w1*dG1+w2*dG2
         return float(dG)
 
     def QuickCalc_Exchange_Energy(self,crRNA,TargetSeq):
-        nt_pos={'A':0,'T':1,'C':2,'G':3,'a':0,'t':1,'c':2,'g':3}
-        dG=0
-        RNA=''
-        DNA=''
-        self.nt_mismatch_in_first8=0
-        for i in range(0,len(crRNA)):
-            pos=20-i
-            w1=self.weights[pos]
-            if nt_pos[crRNA[i]]==nt_pos[TargetSeq[i]]:
-                dG1=0
+        nt_pos = {'A': 0, 'T': 1, 'C': 2, 'G': 3,
+                  'a': 0, 't': 1, 'c': 2, 'g': 3}
+        dG = 0
+        RNA = ''
+        DNA = ''
+        self.nt_mismatch_in_first8 = 0
+        for i in range(0, len(crRNA)):
+            pos = 20-i
+            w1 = self.weights[pos]
+            if nt_pos[crRNA[i]] == nt_pos[TargetSeq[i]]:
+                dG1 = 0
             else:
                 # using a bioinformatics search approach to find sequences with up to x mismatches
-                dG1=2.3 # kcal/mol
-                if pos<=8:
-                    self.nt_mismatch_in_first8=self.nt_mismatch_in_first8+1
-            dG+=w1*dG1
+                dG1 = 2.3  # kcal/mol
+                if pos <= 8:
+                    self.nt_mismatch_in_first8 = self.nt_mismatch_in_first8+1
+            dG += w1*dG1
         return float(dG)
 
     def calc_dG_PAM(self, PAM_full_seq):
 
-        # PAM sequence is 5' - N xxx N - 3' where the energy of xxx is listed below. A normal PAM of 'NGG' with 'TC' afterwards would be listed as 'GGT'
+        # PAM sequence is 5' - N xxx N - 3' where the energy of xxx is listed below.
+        # A normal PAM of 'NGG' with 'TC' afterwards would be listed as 'GGT'
         key = PAM_full_seq[1:4]
         if key in self.PAM_energy:
             return self.PAM_energy[key]
@@ -361,14 +368,14 @@ class clCas9Calculator(object):
             # self.dG_PAM_List.append(dGPAM)
             # self.WarningPAM_List.append(warning)
 
-    def calc_dG_exchange(self, guideSequence, targetSequence):
+    def calc_dG_exchange(self, guide_sequence, targetSequence):
         self.nt_mismatch_in_first8_list=[]
         if self.quickmode:
             solverfunc=self.QuickCalc_Exchange_Energy
         else:
             solverfunc=self.Calc_Exchange_Energy
 
-        dG_exchange = solverfunc(guideSequence,targetSequence)
+        dG_exchange = solverfunc(guide_sequence,targetSequence)
 
         return dG_exchange
 
@@ -379,10 +386,10 @@ class clCas9Calculator(object):
         dG_supercoiling = 10.0 * len(targetSequence) * self.RT * (sigmaFinal**2 - sigmaInitial**2)
         return dG_supercoiling
 
+
 def exportFile(filedata, args):
-    #todo
-    #we should use the CSV print lib
-    #we should start the file with a leading title about when this was run
+    # TODO: we should use the CSV print lib
+    # TODO: we should start the file with a leading title about when this was run
     import csv
     filewrite = csv.writer(file)
 
@@ -399,15 +406,14 @@ def main():
 
     output = [[]]
     for ngg in nggs_list:
-        #we need to extract the results of each run into the Output array that we can then print to a file
+        # we need to extract the results of each run into the Output array that we can then print to a file
 
         sgRNA1 = sgRNA(ngg, Cas9Calculator)
         sgRNA1.run()
         sgRNA1.printTopTargets()
         output.append( sgRNA1.getResults())
 
-    #TODO
-        # we must print the output 2d array to a CSV file
+    # TODO: we must print the output 2d array to a CSV file
 
     exportFile(output,args)
 

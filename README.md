@@ -1,11 +1,12 @@
 # guideRNA\_finder
 
 ### Description
-The 2017 iGEM team has developed a modification of Howard Salis' code for classifying the binding affinity of guide RNAs against a target sequence (e.g. genome or extrachromosomal element).
+The 2017 iGEM team has developed a modification of Howard Salis and Iman Farasats' code for classifying the binding affinity of guide RNAs against a target sequence (e.g. genome or extrachromosomal element).
+This is described thoroughly in their [2016 PLoS Computational Biology paper](http://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1004724).
  This code is used for finding the best guide RNA sequences in *Agrobacterium rhizogenes*.
 
 ### Usage
-python Cas9\_Calculator/Cas9\_Calculator.py -g genome.gbk [genome\_n.gbk] -m MODEL.mat -t target\_seq.fasta
+python Cas9\_Calculator/Cas9\_Calculator.py -g genome.gbk \[genome\_n.gbk] -m MODEL.mat -t target\_seq.fasta
 
 - Genbank files are a standardized format containing annotations for genomic sequence information.
 - The model file (formatted for matlab)
