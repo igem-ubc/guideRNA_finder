@@ -191,9 +191,11 @@ class sgRNA(object):
 
         output = []
 
+        output = self.targetSequenceEnergetics.items()
+
         # return an array of [Target location, Partition Function]
 
-        return
+        return output
 
     #
     # def exportAsDill(self):
@@ -387,33 +389,48 @@ class clCas9Calculator(object):
         return dG_supercoiling
 
 
+def getFileName():
+    import datetime
+    return "10202202genbank.csv"
+
+
+def getHeader():
+    return [["r1c1","r1c2","r1c3"],["r2c1","r2c2","r2c3"]]
+
+
 def exportFile(filedata, args):
     # TODO: we should use the CSV print lib
     # TODO: we should start the file with a leading title about when this was run
     import csv
-    filewrite = csv.writer(file)
 
+
+    filename = getFileName()
+
+    outputHeader = getHeader()
+
+    file = open(filename, 'w')
+    filewrite = csv.writer(file)
+    filewrite.writerows(outputHeader)
+    file.close()
     return
 
 
 def main():
-    args = get_options()
+    args = 0 #get_options()
 
     nggs_list = get_nggs(args.target_sequence)
 
 
     Cas9Calculator = clCas9Calculator(args.genbank, args.model)
 
-    output = [[]]
+    output = []
     for ngg in nggs_list:
-        # we need to extract the results of each run into the Output array that we can then print to a file
+        x = 0
 
-        sgRNA1 = sgRNA(ngg, Cas9Calculator)
-        sgRNA1.run()
-        sgRNA1.printTopTargets()
-        output.append( sgRNA1.getResults())
-
-    # TODO: we must print the output 2d array to a CSV file
+    sgRNA1 = sgRNA(nggs_list[0], Cas9Calculator)
+    sgRNA1.run()
+    sgRNA1.printTopTargets()
+    output.append([nggs_list[0], sgRNA1.getResults()])
 
     exportFile(output,args)
 
