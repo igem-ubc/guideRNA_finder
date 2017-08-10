@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import csv
+import datetime
 import scipy.io
 import math
 import argparse
@@ -11,7 +12,6 @@ from time import time
 from Bio import SeqIO
 
 # import operator
-# import csv
 # import dill
 
 
@@ -389,22 +389,20 @@ class clCas9Calculator(object):
         return dG_supercoiling
 
 
-def getFileName():
-    import datetime
+def get_file_name():
     return "10202202genbank.csv"
 
 
 def getHeader():
-    return [["r1c1","r1c2","r1c3"],["r2c1","r2c2","r2c3"]]
+    return [["r1c1", "r1c2", "r1c3"], ["r2c1", "r2c2", "r2c3"]]
 
 
-def exportFile(filedata, args):
+def export_stats_file(filedata, args):
     # TODO: we should use the CSV print lib
     # TODO: we should start the file with a leading title about when this was run
     import csv
 
-
-    filename = getFileName()
+    filename = get_file_name()
 
     outputHeader = getHeader()
 
@@ -416,7 +414,7 @@ def exportFile(filedata, args):
 
 
 def main():
-    args = 0 #get_options()
+    args = get_options()
 
     nggs_list = get_nggs(args.target_sequence)
 
@@ -432,7 +430,7 @@ def main():
     sgRNA1.printTopTargets()
     output.append([nggs_list[0], sgRNA1.getResults()])
 
-    exportFile(output,args)
+    export_stats_file(output,args)
 
     # sgRNA1.exportAsDill()
 
