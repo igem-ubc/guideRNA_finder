@@ -13,7 +13,7 @@ python Cas9\_Calculator/Cas9\_Calculator.py -g genome.gbk \[genome\_n.gbk] -m MO
 - The target sequence (FASTA-formatted) contains the sequence where binding sites are sought after
 
 To test this script using data in the repository, try:
-python Cas9_Calculator/Cas9_Calculator.py -g Tiplasmidsequence.gb GCA_000219665.2_ASM21966v2_genomic.gbff -m Cas9_Calculator/All_dataModel.mat -t Virb6.fa
+python Cas9_Calculator/Cas9_Calculator.py -g Tiplasmidsequence.gb a_tumefaciens_F2_linear_chromosome.gbff -m Cas9_Calculator/All_dataModel.mat -t Virb6.fa
 
 This will print all candidate gRNAs that could be used to cut the Virb6 gene,
 along with their respective deltaG,
