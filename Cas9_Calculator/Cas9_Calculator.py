@@ -220,16 +220,9 @@ class sgRNA(object):
             partition_function = str(percentPartitionFunction)
             output = [str(self.guide_sequence), position, target_sequence, dg_target, partition_function]
 
-<<<<<<< HEAD
             return output
 
-=======
-        output = self.targetSequenceEnergetics.items()
 
-        # return an array of [Target location, Partition Function]
-
-        return output
->>>>>>> f673f8ce3d6c4ab1b1af52984d1a052551ffa534
 
 
 
@@ -417,28 +410,16 @@ class clCas9Calculator(object):
         return dG_supercoiling
 
 
-<<<<<<< HEAD
 
 #this function should print the given filedata to a csv file
 def exportFile(filedata, args):
-=======
-def get_file_name():
-    return "10202202genbank.csv"
 
-
-def getHeader():
-    return [["r1c1", "r1c2", "r1c3"], ["r2c1", "r2c2", "r2c3"]]
-
-
-def export_stats_file(filedata, args):
->>>>>>> f673f8ce3d6c4ab1b1af52984d1a052551ffa534
     # TODO: we should use the CSV print lib
     # TODO: we should start the file with a leading title about when this was run
 
 
 
     import csv
-<<<<<<< HEAD
     import time
 
     with open("output.csv", "wb") as exportFile:
@@ -447,8 +428,6 @@ def export_stats_file(filedata, args):
         writer.writerows([["guide sequence","position","target sequence","dee gee","partition"]])
         writer.writerows(filedata)
 
-=======
->>>>>>> f673f8ce3d6c4ab1b1af52984d1a052551ffa534
 
     filename = get_file_name()
 
@@ -471,7 +450,7 @@ def main():
 
     output = []
     for ngg in nggs_list:
-<<<<<<< HEAD
+
         # we need to extract the results of each run into the Output array that we can then print to a file
 
         sgRNA1 = sgRNA(ngg, Cas9Calculator)
@@ -479,18 +458,11 @@ def main():
         #sgRNA1.printTopTargets()
     #we add this extra line to save the the results to the array
         output.append(sgRNA1.getResults())
-        exportFile(output,args)
+
     # # TODO: we must print the output 2d array to a CSV file
 
 
-=======
-        x = 0
 
-    sgRNA1 = sgRNA(nggs_list[0], Cas9Calculator)
-    sgRNA1.run()
-    sgRNA1.printTopTargets()
-    output.append([nggs_list[0], sgRNA1.getResults()])
->>>>>>> f673f8ce3d6c4ab1b1af52984d1a052551ffa534
 
     export_stats_file(output,args)
 
