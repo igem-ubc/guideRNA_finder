@@ -175,32 +175,54 @@ class sgRNA(object):
 
     def printTopTargets(self, num_targets_returned=100):
 
+
         for (source, targets) in self.targetSequenceEnergetics.items():
             print "SOURCE: %s" % source
 
+
+            # sort the targets items by the dG_target field
             sortedTargetList = sorted(targets.items(), key=lambda (k, v): v['dG_target'])  # sort by smallest to largest dG_target
+
+            #print the index of the table
             print "POSITION\t\tTarget Sequence\t\tdG_Target\t\t% Partition Function"
+
+            # for every element (0 -to- end of list) in the now sorted list of target sites found: do something
             for (position, info) in sortedTargetList[0:num_targets_returned]:
+
+                #calculate the percent partition (Partision Function) for this target site
                 percentPartitionFunction = 100 * math.exp(-info['dG_target'] / self.Cas9Calculator.RT) / self.partition_function
+
+                #print the info to the screen: position, info["sequence"], info[dG_target] and the partition function we just calculated
                 print "%s\t\t\t%s\t\t\t%s\t\t\t%s" % (str(position), info['sequence'], str(round(info['dG_target'], 2)), str(percentPartitionFunction) )
 
+
+
+# this function should return the data that this run of the function calculated
+# return an array of the best in the form[Target location, Partition Function] FOR THIS RUN OF THE CODE
     def getResults(self):
         # TODO: return the results of this run of the calculator
-        # TODO: see the above code that prints the results out and extract out the important data, try by starting with and seeing what is in there
-        print self.targetSequenceEnergetics.items()
+        # TODO: note: the above function does almost excactly what we want, we just need to pullout the first thing it prints out and return the first one of the sorted list
 
-        output = []
+        output = [str("SOME INFO"), str("MORE INFO"), str("LAST BIT OF INFO")]
 
-        # return an array of [Target location, Partition Function]
+        for (source, targets) in self.targetSequenceEnergetics.items():
+            print "SOURCE: %s" % source
+            print "1"
+            # sort the targets items by the dG_target field
+            sortedTargetList = sorted(targets.items(), key=lambda (k, v): v['dG_target'])  # sort by smallest to largest dG_target
 
-        return
+            top_hit = sortedTargetList[0]
+            position = str(top_hit[0])  # assuming position is in index 0
+            target_sequence = top_hit[1]['sequence']
+            dg_target = str(round(top_hit[1]['dG_target'], 2))
+            percentPartitionFunction = 100 * math.exp(
+                -top_hit[1]['dG_target'] / self.Cas9Calculator.RT) / self.partition_function
+            partition_function = str(percentPartitionFunction)
+            output = [str(self.guide_sequence), position, target_sequence, dg_target, partition_function]
 
-    #
-    # def exportAsDill(self):
-    #
-    #     handle = open('sgRNA_%s.dill' % self.guide_sequence,'wb')
-    #     dill.dump(self, handle, -1)
-    #     handle.close()
+            return output
+
+
 
 
 class clCas9Calculator(object):
@@ -387,11 +409,23 @@ class clCas9Calculator(object):
         return dG_supercoiling
 
 
+
+#this function should print the given filedata to a csv file
 def exportFile(filedata, args):
     # TODO: we should use the CSV print lib
     # TODO: we should start the file with a leading title about when this was run
+
+
+
     import csv
-    filewrite = csv.writer(file)
+    import time
+
+    with open("output.csv", "wb") as exportFile:
+        writer = csv.writer(exportFile)
+       # writer.writerows(["Run date:",time.time()
+        writer.writerows([["guide sequence","position","target sequence","dee gee","partition"]])
+        writer.writerows(filedata)
+
 
     return
 
@@ -404,16 +438,19 @@ def main():
 
     Cas9Calculator = clCas9Calculator(args.genbank, args.model)
 
-    output = [[]]
+    output = []
     for ngg in nggs_list:
         # we need to extract the results of each run into the Output array that we can then print to a file
 
         sgRNA1 = sgRNA(ngg, Cas9Calculator)
         sgRNA1.run()
-        sgRNA1.printTopTargets()
-        output.append( sgRNA1.getResults())
+        #sgRNA1.printTopTargets()
+    #we add this extra line to save the the results to the array
+        output.append(sgRNA1.getResults())
+        exportFile(output,args)
+    # # TODO: we must print the output 2d array to a CSV file
 
-    # TODO: we must print the output 2d array to a CSV file
+
 
     exportFile(output,args)
 
