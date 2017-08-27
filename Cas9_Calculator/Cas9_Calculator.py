@@ -409,6 +409,17 @@ class clCas9Calculator(object):
         dG_supercoiling = 10.0 * len(targetSequence) * self.RT * (sigmaFinal**2 - sigmaInitial**2)
         return dG_supercoiling
 
+def get_file_name(args):
+    import time
+    #don't import here
+
+    return "NO DYNAMIC NAMING SET"
+
+
+def getHeader():
+   #_________________________MITCH_____________________ YOUR HEADER FILE GOSE HERE
+
+    return [["guide sequence","position","target sequence","dee gee","partition"]]
 
 
 #this function should print the given filedata to a csv file
@@ -420,23 +431,16 @@ def exportFile(filedata, args):
 
 
     import csv
-    import time
 
-    with open("output.csv", "wb") as exportFile:
+    filename = get_file_name(args)
+
+
+    with open(filename, "wb") as exportFile:
         writer = csv.writer(exportFile)
        # writer.writerows(["Run date:",time.time()
-        writer.writerows([["guide sequence","position","target sequence","dee gee","partition"]])
+        writer.writerows(getHeader())
         writer.writerows(filedata)
 
-
-    filename = get_file_name()
-
-    outputHeader = getHeader()
-
-    file = open(filename, 'w')
-    filewrite = csv.writer(file)
-    filewrite.writerows(outputHeader)
-    file.close()
     return
 
 
@@ -464,7 +468,7 @@ def main():
 
 
 
-    export_stats_file(output,args)
+    exportFile(output,args)
 
     # sgRNA1.exportAsDill()
 
