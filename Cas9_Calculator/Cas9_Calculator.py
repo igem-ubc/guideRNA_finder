@@ -415,9 +415,9 @@ def get_file_name(args):
     import time
     import datetime
     ts = time.time()
-    st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+    st = datetime.datetime.fromtimestamp(ts).strftime('%Y_%m_%d_%H_%M_%S')
 
-    return st + "-"+args.target_sequence[3:-3]+".csv"
+    return st + "_"+args.target_sequence[:-4]+".csv"
 
 
 def getHeader():
@@ -457,11 +457,11 @@ def main():
     import time
     import datetime
     ts = time.time()
-    timeCurr = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+    timeCurr = datetime.datetime.fromtimestamp(ts).strftime('%Y_%m_%d_%H_%M_%S')
 
 
     args = get_options()
-    print args.target_sequence[3:-3]
+    print args.target_sequence[:-3]
 
     nggs_list = get_nggs(args.target_sequence)
 
@@ -478,13 +478,13 @@ def main():
         #sgRNA1.printTopTargets()
         #we add this extra line to save the the results to the array
         output.append(sgRNA1.getResults())
-
+        exportFile(output, args)
     # # TODO: we must print the output 2d array to a CSV file
 
 
 
 
-    exportFile(output,args)
+
 
     # sgRNA1.exportAsDill()
 
