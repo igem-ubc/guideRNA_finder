@@ -410,16 +410,25 @@ class clCas9Calculator(object):
         return dG_supercoiling
 
 def get_file_name(args):
-    import time
-    #don't import here
 
-    return "NO DYNAMIC NAMING SET"
+
+    import time
+    import datetime
+    ts = time.time()
+    st = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+
+    return st + "-"+args.target_sequence[3:-3]+".csv"
 
 
 def getHeader():
    #_________________________MITCH_____________________ YOUR HEADER FILE GOSE HERE
 
-    return [["guide sequence","position","target sequence","dee gee","partition"]]
+    import time
+    import datetime
+    ts = time.time()
+    timeCurr = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+
+    return [["Time:", timeCurr[0:10]],["Date", timeCurr[11:]],["guide sequence","position","target sequence","dee gee","partition"]]
 
 
 #this function should print the given filedata to a csv file
@@ -445,7 +454,14 @@ def exportFile(filedata, args):
 
 
 def main():
+    import time
+    import datetime
+    ts = time.time()
+    timeCurr = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
+
+
     args = get_options()
+    print args.target_sequence[3:-3]
 
     nggs_list = get_nggs(args.target_sequence)
 
@@ -460,7 +476,7 @@ def main():
         sgRNA1 = sgRNA(ngg, Cas9Calculator)
         sgRNA1.run()
         #sgRNA1.printTopTargets()
-    #we add this extra line to save the the results to the array
+        #we add this extra line to save the the results to the array
         output.append(sgRNA1.getResults())
 
     # # TODO: we must print the output 2d array to a CSV file
