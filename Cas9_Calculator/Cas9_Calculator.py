@@ -417,22 +417,21 @@ def get_file_name(args):
     ts = time.time()
     st = datetime.datetime.fromtimestamp(ts).strftime('%Y_%m_%d_%H_%M_%S')
 
-    return st + "_"+args.target_sequence[:-4]+".csv"
+    return st + "_"+args.target_sequence[:-3]+".csv"
 
 
-def getHeader():
-   #_________________________MITCH_____________________ YOUR HEADER FILE GOSE HERE
+def getHeader(args):
 
     import time
     import datetime
     ts = time.time()
     timeCurr = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
 
-    return [["Time:", timeCurr[0:10]],["Date", timeCurr[11:]],["guide sequence","position","target sequence","dee gee","partition"]]
+    return [["DATE: ", timeCurr[0:10]],["TIME: ", timeCurr[11:]],["COMMAND:", args],["guide sequence","position","target sequence","dee gee","partition"]]
 
 
 #this function should print the given filedata to a csv file
-def exportFile(filedata, args):
+def exportFile(filedata, filename, args):
 
     # TODO: we should use the CSV print lib
     # TODO: we should start the file with a leading title about when this was run
@@ -441,13 +440,13 @@ def exportFile(filedata, args):
 
     import csv
 
-    filename = get_file_name(args)
+
 
 
     with open(filename, "wb") as exportFile:
         writer = csv.writer(exportFile)
        # writer.writerows(["Run date:",time.time()
-        writer.writerows(getHeader())
+        writer.writerows(getHeader(args))
         writer.writerows(filedata)
 
     return
@@ -457,12 +456,12 @@ def main():
     import time
     import datetime
     ts = time.time()
-    timeCurr = datetime.datetime.fromtimestamp(ts).strftime('%Y_%m_%d_%H_%M_%S')
+    timeCurr = datetime.datetime.fromtimestamp(ts).strftime('%Y_%m_%d_%H:%M:%S')
 
 
     args = get_options()
     print args.target_sequence[:-3]
-
+    filename = get_file_name(args)
     nggs_list = get_nggs(args.target_sequence)
 
 
@@ -478,13 +477,9 @@ def main():
         #sgRNA1.printTopTargets()
         #we add this extra line to save the the results to the array
         output.append(sgRNA1.getResults())
-        exportFile(output, args)
-    # # TODO: we must print the output 2d array to a CSV file
-
-
-
-
-
+        from operator import itemgetter
+        output = sortedTargetList = sorted(output, key=itemgetter(4), reverse=True)
+        exportFile(output,filename, args)
 
     # sgRNA1.exportAsDill()
 
