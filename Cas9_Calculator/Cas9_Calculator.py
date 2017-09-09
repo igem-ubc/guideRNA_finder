@@ -444,10 +444,26 @@ def get_header(args):
     ts = time.time()
     timeCurr = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
 
+<<<<<<< HEAD
     return [["DATE: ", timeCurr[0:10]],
             ["TIME: ", timeCurr[11:]],
             ["COMMAND:", args],
             ["guide sequence", "position", "target sequence", "dee gee", "partition"]]
+=======
+
+
+    output = [["DATE: ", timeCurr[0:10]],["TIME: ", timeCurr[11:]],["COMMAND:", args]]
+
+    for file in args.genbank:
+        targetFile = ""
+        with open(file, "r") as Target:
+            targetFile = Target.readline()
+        output.append([(file + " NCBI INFO:"), targetFile[1:].strip()])
+
+    output.append(["guide sequence", "position", "target sequence", "dee gee", "partition"])
+
+    return output
+>>>>>>> 77dbc8c7da5ac21198e7da7b3650bb37ab3f4d87
 
 
 def export_file(filedata, filename, args):
