@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import csv
+import time
 import datetime
 import scipy.io
 import math
@@ -22,13 +23,18 @@ def get_options():
     """
     parser = argparse.ArgumentParser(description="A python script to look for off-target guide RNA binding sites using"
                                                  "a potential guide RNA sequence and a FASTA or Genbank (.gbk) file")
-    parser.add_argument("-g", "--genbank", required=True, nargs="+",
-                        help="A genbank file for the chromosome being used")
-    parser.add_argument("-m", "--model", required=True,
-                        help="The matlab model to use.")
-    parser.add_argument("-t", "--target_sequence", required=True,
+    parser.add_argument("-q", "--query",
+                        required=True,
+                        nargs="+",
+                        help="File(s) containing sequences that need to be analyzed for off-target guideRNA binding.")
+    
+    parser.add_argument("-t", "--target_sequence",
+                        required=True,
                         help="The gene sequence to be targetted")
 
+    parser.add_argument("-m", "--model",
+                        required=True,
+                        help="The matlab model to use.")
     args = parser.parse_args()
     return args
 
@@ -75,6 +81,8 @@ def get_nggs(target_sequence):
         if re.match(ngg_re, candidate):
             nggs.append(candidate[:20])
         counter += 1
+
+    sys.stdout.write("done.\n")
     return nggs
 
 
@@ -195,11 +203,11 @@ class sgRNA(object):
                 #print the info to the screen: position, info["sequence"], info[dG_target] and the partition function we just calculated
                 print "%s\t\t\t%s\t\t\t%s\t\t\t%s" % (str(position), info['sequence'], str(round(info['dG_target'], 2)), str(percentPartitionFunction) )
 
-
-
-# this function should return the data that this run of the function calculated
-# return an array of the best in the form[Target location, Partition Function] FOR THIS RUN OF THE CODE
     def getResults(self):
+        """
+        This function should return the data that this run of the function calculated
+        return an array of the best in the form[Target location, Partition Function] FOR THIS RUN OF THE CODE
+        """
         # TODO: return the results of this run of the calculator
         # TODO: note: the above function does almost excactly what we want, we just need to pullout the first thing it prints out and return the first one of the sorted list
 
@@ -221,9 +229,6 @@ class sgRNA(object):
             output = [str(self.guide_sequence), position, target_sequence, dg_target, partition_function]
 
             return output
-
-
-
 
 
 class clCas9Calculator(object):
@@ -253,7 +258,7 @@ class clCas9Calculator(object):
 
     def init_target_finder(self, filename_list, length=10):
 
-        targetDictionary = {}
+        target_dictionary = {}
 
         # Create a list of all possible k-mers
         all_possible_mers = mers(length)
@@ -264,20 +269,32 @@ class clCas9Calculator(object):
 
         print "Number of k-mers: ", len(empty_mers.keys())
 
+        full_sequence = ""
         for filename in filename_list:
+            extension = filename.split('.')[-1]
             handle = open(filename, 'r')
-            records = SeqIO.parse(handle, "genbank")
-            record = records.next()
+            if extension in ['fa', 'fna', 'faa', 'fasta']:
+                # File is in FASTA format
+                fa_records = SeqIO.parse(handle, "fasta")
+                for record in fa_records:
+                    full_sequence += str(record.seq)
+            elif extension in ['gb', 'gbff']:
+                # File is a GenBank file
+                genbank_record_obj = SeqIO.parse(handle, "genbank")
+                record = genbank_record_obj.next()
+                full_sequence += str(record.seq)
+            else:
+                sys.stderr.write("ERROR: Unable to detect file-type of " + filename + " by extension! Exiting...\n")
             handle.close()
 
-            full_sequence = str(record.seq)
-            positions_at_mers = identify_mer_positions(full_sequence, empty_mers, length)
-            targetDictionary[filename] = {}
-            targetSequenceList = []
-            for fullPAM in self.returnAllPAMs():
-                targetSequenceList = identify_target_sequence_matching_pam(fullPAM, positions_at_mers, full_sequence)
-                targetDictionary[filename][fullPAM] = targetSequenceList
-            self.targetDictionary = targetDictionary
+        positions_at_mers = identify_mer_positions(full_sequence, empty_mers, length)
+        query_files = ','.join(filename_list)
+        target_dictionary[query_files] = dict()
+        targetSequenceList = []
+        for fullPAM in self.returnAllPAMs():
+            targetSequenceList = identify_target_sequence_matching_pam(fullPAM, positions_at_mers, full_sequence)
+            target_dictionary[query_files][fullPAM] = targetSequenceList
+        self.targetDictionary = target_dictionary
 
         empty_mers.clear()
 
@@ -409,44 +426,47 @@ class clCas9Calculator(object):
         dG_supercoiling = 10.0 * len(targetSequence) * self.RT * (sigmaFinal**2 - sigmaInitial**2)
         return dG_supercoiling
 
-def get_file_name(args):
 
+def get_file_name(args):
 
     import time
     import datetime
     ts = time.time()
-    st = datetime.datetime.fromtimestamp(ts).strftime('%Y_%m_%d_%H_%M_%S')
+    st = datetime.datetime.fromtimestamp(ts).strftime('%Y_%m_%d_%H_%M')
 
-    return st + "_"+args.target_sequence[:-3]+".csv"
+    return st + "_" + args.target_sequence[:-3] + ".csv"
 
 
-def getHeader(args):
+def get_header(args):
 
     import time
     import datetime
     ts = time.time()
     timeCurr = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S')
 
-    return [["DATE: ", timeCurr[0:10]],["TIME: ", timeCurr[11:]],["COMMAND:", args],["guide sequence","position","target sequence","dee gee","partition"]]
+    return [["DATE: ", timeCurr[0:10]],
+            ["TIME: ", timeCurr[11:]],
+            ["COMMAND:", args],
+            ["guide sequence", "position", "target sequence", "dee gee", "partition"]]
 
 
-#this function should print the given filedata to a csv file
-def exportFile(filedata, filename, args):
-
+def export_file(filedata, filename, args):
+    """
+    This function write the file data to a csv file
+    :param filedata: 
+    :param filename: 
+    :param args: 
+    :return: 
+    """
     # TODO: we should use the CSV print lib
     # TODO: we should start the file with a leading title about when this was run
 
-
-
     import csv
 
-
-
-
-    with open(filename, "wb") as exportFile:
-        writer = csv.writer(exportFile)
-       # writer.writerows(["Run date:",time.time()
-        writer.writerows(getHeader(args))
+    with open(filename, "wb") as csv_output:
+        writer = csv.writer(csv_output)
+        # writer.writerows(["Run date:",time.time()
+        writer.writerows(get_header(args))
         writer.writerows(filedata)
 
     return
@@ -458,14 +478,12 @@ def main():
     ts = time.time()
     timeCurr = datetime.datetime.fromtimestamp(ts).strftime('%Y_%m_%d_%H:%M:%S')
 
-
     args = get_options()
-    print args.target_sequence[:-3]
+    sys.stdout.write("Searching for suitable 'nGG's in: " + '.'.join(args.target_sequence.split('.')[:-1]) + "... ")
     filename = get_file_name(args)
     nggs_list = get_nggs(args.target_sequence)
 
-
-    Cas9Calculator = clCas9Calculator(args.genbank, args.model)
+    Cas9Calculator = clCas9Calculator(args.query, args.model)
 
     output = []
     for ngg in nggs_list:
@@ -474,12 +492,12 @@ def main():
 
         sgRNA1 = sgRNA(ngg, Cas9Calculator)
         sgRNA1.run()
-        #sgRNA1.printTopTargets()
-        #we add this extra line to save the the results to the array
+        # sgRNA1.printTopTargets()
+        # we add this extra line to save the the results to the array
         output.append(sgRNA1.getResults())
         from operator import itemgetter
         output = sortedTargetList = sorted(output, key=itemgetter(4), reverse=True)
-        exportFile(output,filename, args)
+        export_file(output, filename, args)
 
     # sgRNA1.exportAsDill()
 
@@ -496,5 +514,6 @@ def main():
     # Cas9Calculator.calcTarget_energy()
     # Cas9Calculator.export_dG() # in an excel file
     # print Cas9Calculator.dG_total_List
+
 
 main()
