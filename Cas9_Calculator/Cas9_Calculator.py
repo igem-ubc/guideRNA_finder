@@ -85,7 +85,7 @@ def get_nggs(target_sequence):
                 target_seq += line.strip()
 
     # Add the nGGs from the antisense strand
-    reverse_complement(target_seq)
+    target_seq += reverse_complement(target_seq)
 
     nggs = list()
     length = 23
@@ -121,7 +121,7 @@ def identify_mer_positions(full_sequence, empty_mers, length=10):
             try:
                 empty_mers[word].append(counter+length)
             except KeyError:
-                sys.exit(word)
+                sys.exit("ERROR: " + sys.exit(word) + " not found in all mers.")
         counter += 1
     return empty_mers
 
@@ -290,7 +290,7 @@ class clCas9Calculator(object):
                 # File is in FASTA format
                 fa_records = SeqIO.parse(handle, "fasta")
                 for record in fa_records:
-                    full_sequence += str(record.seq)
+                    full_sequence += str(record.seq).upper()
             elif extension in ['gb', 'gbff']:
                 # File is a GenBank file
                 genbank_record_obj = SeqIO.parse(handle, "genbank")
@@ -299,6 +299,7 @@ class clCas9Calculator(object):
             else:
                 sys.stderr.write("ERROR: Unable to detect file-type of " + filename + " by extension! Exiting...\n")
             handle.close()
+        full_sequence += reverse_complement(full_sequence)
 
         positions_at_mers = identify_mer_positions(full_sequence, empty_mers, length)
         query_files = ','.join(filename_list)
