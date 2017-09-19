@@ -35,6 +35,18 @@ def get_options():
     parser.add_argument("-m", "--model",
                         required=True,
                         help="The matlab model to use.")
+    parser.add_argument("-a", "--quick_analysis",
+                        required=False,
+                        default=False,
+                        action="store_true",
+                        help="Flag indicating whether the quick analysis mode should be used"
+                             " or the thorough version [DEFAULT].")
+    parser.add_argument("-p", "--min_partition",
+                        required=False,
+                        default=50,
+                        type=int,
+                        help="The minimum partition value required to report a potential guide RNA [ DEFAULT = 50 ]")
+
     args = parser.parse_args()
     return args
 
@@ -71,6 +83,9 @@ def get_nggs(target_sequence):
                 pass
             else:
                 target_seq += line.strip()
+
+    # Add the nGGs from the antisense strand
+    reverse_complement(target_seq)
 
     nggs = list()
     length = 23
@@ -155,11 +170,11 @@ class sgRNA(object):
             self.targetSequenceEnergetics[source] = {}
             for fullPAM in self.Cas9Calculator.returnAllPAMs():
                 dG_PAM = self.Cas9Calculator.calc_dG_PAM(fullPAM)
-                dG_supercoiling = self.Cas9Calculator.calc_dG_supercoiling(sigmaInitial=-0.05, targetSequence=20 * "N")  #only cares about length of sequence
-                for (targetSequence, targetPosition) in targetDictionary[source][fullPAM]:
-                    dG_exchange = self.Cas9Calculator.calc_dG_exchange(self.guide_sequence, targetSequence)
+                dG_supercoiling = self.Cas9Calculator.calc_dG_supercoiling(sigmaInitial=-0.05, target_sequence=20 * "N")  #only cares about length of sequence
+                for (target_sequence, targetPosition) in targetDictionary[source][fullPAM]:
+                    dG_exchange = self.Cas9Calculator.calc_dG_exchange(self.guide_sequence, target_sequence)
                     dG_target = dG_PAM + dG_supercoiling + dG_exchange
-                    self.targetSequenceEnergetics[source][targetPosition] = {'sequence': targetSequence, 
+                    self.targetSequenceEnergetics[source][targetPosition] = {'sequence': target_sequence, 
                                                                              'dG_PAM': dG_PAM, 
                                                                              'full_PAM': fullPAM, 
                                                                              'dG_exchange': dG_exchange,
@@ -168,7 +183,7 @@ class sgRNA(object):
                     self.partition_function += math.exp(-dG_target / self.Cas9Calculator.RT)
 
                     if self.debug:
-                        print "targetSequence : ", targetSequence
+                        print "target_sequence : ", target_sequence
                         print "fullPAM: ", fullPAM
                         print "dG_PAM: ", dG_PAM
                         print "dG_supercoiling: ", dG_supercoiling
@@ -183,24 +198,22 @@ class sgRNA(object):
 
     def printTopTargets(self, num_targets_returned=100):
 
-
         for (source, targets) in self.targetSequenceEnergetics.items():
             print "SOURCE: %s" % source
 
+            # sort the targets items by dG_target field in increasing order
+            sortedTargetList = sorted(targets.items(), key=lambda (k, v): v['dG_target'])
 
-            # sort the targets items by the dG_target field
-            sortedTargetList = sorted(targets.items(), key=lambda (k, v): v['dG_target'])  # sort by smallest to largest dG_target
-
-            #print the index of the table
+            # print the index of the table
             print "POSITION\t\tTarget Sequence\t\tdG_Target\t\t% Partition Function"
 
             # for every element (0 -to- end of list) in the now sorted list of target sites found: do something
             for (position, info) in sortedTargetList[0:num_targets_returned]:
 
-                #calculate the percent partition (Partision Function) for this target site
+                # calculate the percent partition (Partision Function) for this target site
                 percentPartitionFunction = 100 * math.exp(-info['dG_target'] / self.Cas9Calculator.RT) / self.partition_function
 
-                #print the info to the screen: position, info["sequence"], info[dG_target] and the partition function we just calculated
+                # print the info to the screen: position, info["sequence"], info[dG_target] and the partition function we just calculated
                 print "%s\t\t\t%s\t\t\t%s\t\t\t%s" % (str(position), info['sequence'], str(round(info['dG_target'], 2)), str(percentPartitionFunction) )
 
     def getResults(self):
@@ -211,21 +224,20 @@ class sgRNA(object):
         # TODO: return the results of this run of the calculator
         # TODO: note: the above function does almost excactly what we want, we just need to pullout the first thing it prints out and return the first one of the sorted list
 
-        output = [str("SOME INFO"), str("MORE INFO"), str("LAST BIT OF INFO")]
+        output = []
 
         for (source, targets) in self.targetSequenceEnergetics.items():
             print "SOURCE: %s" % source
-            print "1"
-            # sort the targets items by the dG_target field
-            sortedTargetList = sorted(targets.items(), key=lambda (k, v): v['dG_target'])  # sort by smallest to largest dG_target
+            # sort the targets items by dG_target field in increasing order
+            sorted_target_list = sorted(targets.items(), key=lambda (k, v): v['dG_target'])
 
-            top_hit = sortedTargetList[0]
+            top_hit = sorted_target_list[0]
             position = str(top_hit[0])  # assuming position is in index 0
             target_sequence = top_hit[1]['sequence']
             dg_target = str(round(top_hit[1]['dG_target'], 2))
             percentPartitionFunction = 100 * math.exp(
                 -top_hit[1]['dG_target'] / self.Cas9Calculator.RT) / self.partition_function
-            partition_function = str(percentPartitionFunction)
+            partition_function = round(float(percentPartitionFunction), 3)
             output = [str(self.guide_sequence), position, target_sequence, dg_target, partition_function]
 
             return output
@@ -240,6 +252,7 @@ class clCas9Calculator(object):
         data = scipy.io.loadmat(self.model_name)
         self.weights = data['w1']
         self.decNN = data['decNN']
+        # What does this represent?
         self.RT = 0.61597
 
         # the PAMs with the highest dG, ignoring other PAM sequences by setting their dG to 0
@@ -323,9 +336,9 @@ class clCas9Calculator(object):
     def Calc_Exchange_Energy(self, crRNA, targetSeq):
         nt_pos = {'A': 0, 'T': 1, 'C': 2, 'G': 3,
                   'a': 0, 't': 1, 'c': 2, 'g': 3}
-        dG=0
-        RNA= ''
-        DNA= ''
+        dG = 0
+        RNA = ''
+        DNA = ''
         for i in range(0, len(crRNA)):
             if i > 0:
                 RNA = crRNA[(i-1):(i+1)]
@@ -363,7 +376,7 @@ class clCas9Calculator(object):
             dG += w1*dG1+w2*dG2
         return float(dG)
 
-    def QuickCalc_Exchange_Energy(self,crRNA,TargetSeq):
+    def QuickCalc_Exchange_Energy(self, crRNA, TargetSeq):
         nt_pos = {'A': 0, 'T': 1, 'C': 2, 'G': 3,
                   'a': 0, 't': 1, 'c': 2, 'g': 3}
         dG = 0
@@ -408,22 +421,21 @@ class clCas9Calculator(object):
             # self.dG_PAM_List.append(dGPAM)
             # self.WarningPAM_List.append(warning)
 
-    def calc_dG_exchange(self, guide_sequence, targetSequence):
-        self.nt_mismatch_in_first8_list=[]
+    def calc_dG_exchange(self, guide_sequence, target_sequence):
+        self.nt_mismatch_in_first8_list = []
         if self.quickmode:
-            solverfunc=self.QuickCalc_Exchange_Energy
+            solverfunc = self.QuickCalc_Exchange_Energy
         else:
-            solverfunc=self.Calc_Exchange_Energy
+            solverfunc = self.Calc_Exchange_Energy
 
-        dG_exchange = solverfunc(guide_sequence,targetSequence)
+        dG_exchange = solverfunc(guide_sequence, target_sequence)
 
         return dG_exchange
 
-    def calc_dG_supercoiling(self, sigmaInitial, targetSequence):
-
+    def calc_dG_supercoiling(self, sigmaInitial, target_sequence):
 
         sigmaFinal = -0.08
-        dG_supercoiling = 10.0 * len(targetSequence) * self.RT * (sigmaFinal**2 - sigmaInitial**2)
+        dG_supercoiling = 10.0 * len(target_sequence) * self.RT * (sigmaFinal**2 - sigmaInitial**2)
         return dG_supercoiling
 
 
@@ -435,6 +447,23 @@ def get_file_name(args):
     st = datetime.datetime.fromtimestamp(ts).strftime('%Y_%m_%d_%H_%M')
 
     return st + "_" + args.target_sequence[:-3] + ".csv"
+
+
+def reverse_complement(nucleotide_sequence):
+    comp = []
+    for c in nucleotide_sequence:
+        if c == 'A' or c == 'a':
+            comp.append('T')
+        if c == 'G' or c == 'g':
+            comp.append('C')
+        if c == 'U' or c == 'u' or c == 'T' or c == 't':
+            comp.append('A')
+        if c == 'C' or c == 'c':
+            comp.append('G')
+        else:
+            pass
+    rev_comp = ''.join(reversed(comp))
+    return rev_comp
 
 
 def get_header(args):
@@ -492,9 +521,10 @@ def main():
     filename = get_file_name(args)
     nggs_list = get_nggs(args.target_sequence)
 
-    Cas9Calculator = clCas9Calculator(args.query, args.model)
+    Cas9Calculator = clCas9Calculator(args.query, args.model, args.quick_analysis)
 
     output = []
+    sorted_target_list = []
     for ngg in nggs_list:
 
         # we need to extract the results of each run into the Output array that we can then print to a file
@@ -503,10 +533,27 @@ def main():
         sgRNA1.run()
         # sgRNA1.printTopTargets()
         # we add this extra line to save the the results to the array
-        output.append(sgRNA1.getResults())
-        from operator import itemgetter
-        output = sortedTargetList = sorted(output, key=itemgetter(4), reverse=True)
-        export_file(output, filename, args)
+        sgRNA_result = sgRNA1.getResults()
+
+        # If there is something new worth reporting, append to output, report current best, and write to output file
+        if sgRNA_result[4] > args.min_partition:
+            output.append(sgRNA_result)
+            from operator import itemgetter
+            sorted_target_list = sorted(output, key=itemgetter(4), reverse=True)
+            sys.stdout.write("Current top hit:\n")
+            for field in sorted_target_list[0]:
+                sys.stdout.write(str(field) + "\t")
+            sys.stdout.write("\n")
+            export_file(sorted_target_list, filename, args)
+        # If there is nothing new, but still something good, report current best
+        elif len(output) > 0:
+            sys.stdout.write("Current top hit:\n")
+            for field in sorted_target_list[0]:
+                sys.stdout.write(str(field) + "\t")
+            sys.stdout.write("\n")
+        # If there is nothing at all, just keep analyzing nGGs
+        else:
+            pass
 
     # sgRNA1.exportAsDill()
 
