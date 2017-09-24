@@ -30,7 +30,7 @@ def get_options():
     
     parser.add_argument("-t", "--target_sequence",
                         required=True,
-                        help="The gene sequence to be targetted")
+                        help="The gene sequence to be targeted")
 
     parser.add_argument("-m", "--model",
                         required=True,
@@ -43,9 +43,9 @@ def get_options():
                              " or the thorough version [DEFAULT].")
     parser.add_argument("-p", "--min_partition",
                         required=False,
-                        default=50,
+                        default=0,
                         type=int,
-                        help="The minimum partition value required to report a potential guide RNA [ DEFAULT = 50 ]")
+                        help="The minimum partition value required to report a potential guide RNA [ DEFAULT = 0 ]")
 
     args = parser.parse_args()
     return args
